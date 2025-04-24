@@ -44,4 +44,6 @@ def simulate_cyclic_hopfield(P=10, N=100, beta=4.0, nmax=20, seed=42):
     plt.tight_layout()
     plt.show()
 
-simulate_cyclic_hopfield()
+
+if __name__ == "__main__":
+    simulate_cyclic_hopfield()
