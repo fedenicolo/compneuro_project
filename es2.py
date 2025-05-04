@@ -327,10 +327,10 @@ if __name__ == "__main__":
 
     #for the bonus
     # Run for M = 2 and M = 3
-    simulate_mixture_initial_condition(M=2)
-    simulate_mixture_initial_condition(M=3)
+    #simulate_mixture_initial_condition(M=2)
+    # simulate_mixture_initial_condition(M=3)
 
-    #simulate_three_independent_cycles()
+    simulate_three_independent_cycles()
 
 #Es 2.1
 #At t = 0, the overlap is close to 1, as expected.

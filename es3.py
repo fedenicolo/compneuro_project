@@ -141,3 +141,16 @@ if __name__ == "__main__":
     #3.4
     plot_explained_variance(eigvals, max_components=20)
 
+
+
+# Theoretical comment 3.4:
+# We observe that the first component explain around the 36% of the variance, the next few components
+# still explain significant portion and after about the 6th component, the explained variance drops rapidly.
+# The facts that only a few components capture most of rge variance indicates that the data lives in a lower
+# dimensional space. We can conclude from the plot that the number of patterns P used in the network can be 
+# roughly estimated from the cutoff point in the explained variance plot --> P is about 8-10.
+
+# Question 3.5:
+# To estimate the dimensionality of recorded data using PCA, analyze the explained variance per component 
+# and identify where the curve flattens out. The number of components before this flattening corresponds to the 
+# intrinsic dimensionality (i.e., number of patterns or independent variables governing the dynamics).
