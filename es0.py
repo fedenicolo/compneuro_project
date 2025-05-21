@@ -38,7 +38,7 @@ def simulate_cyclic_hopfield(P=10, N=100, beta=4.0, nmax=20, seed=42):
     plt.xlabel("Iteration")
     plt.ylabel("Overlap")
     plt.title("Overlap Evolution Over Time")
-    plt.legend()
+    #plt.legend()
     plt.grid(True, axis='x')
     plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     plt.tight_layout()

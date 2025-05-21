@@ -26,7 +26,7 @@ def compute_pca_components(x_time_series):
 
     return eigvals, eigvecs
 
-def simulate_for_pca(P=10, N=500, beta=4.0, tau=5.0, dt=0.5, T=500.0, tau_delay_factor=2, seed=42):
+def simulate_for_pca(P=5, N=500, beta=4.0, tau=5.0, dt=0.5, T=500.0, tau_delay_factor=2, seed=42):
     """
     Simulate the continuous Hopfield network to produce x(t) for PCA analysis (Exercise 3.2).
     Returns:
@@ -110,16 +110,16 @@ if __name__ == "__main__":
     loadings = compute_loadings(x, eigvecs, K=10)
 
     # Plot 3.2
-    plt.figure(figsize=(10, 5))
-    for k in range(loadings.shape[1]):
-        plt.plot(loadings[:, k], label=f"$l_{k+1}(t)$")
-    plt.xlabel("Time step")
-    plt.ylabel("Loading")
-    plt.title("PCA Loadings $l_k(t)$ for First 10 Components")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    # plt.figure(figsize=(10, 5))
+    # for k in range(loadings.shape[1]):
+    #     plt.plot(loadings[:, k], label=f"$l_{k+1}(t)$")
+    # plt.xlabel("Time step")
+    # plt.ylabel("Loading")
+    # plt.title("PCA Loadings $l_k(t)$ for First 10 Components")
+    # plt.legend()
+    # plt.grid(True)
+    # plt.tight_layout()
+    # plt.show()
 
     # 3.3 Reconstruct neuron activity for K = P/2 and K = P
     P = patterns.shape[0]
