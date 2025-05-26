@@ -6,16 +6,6 @@ from es0 import *
 from es2 import *
 
 def compute_pca_components(x_time_series):
-    """
-    Compute PCA components (eigenvalues and eigenvectors) from neural time series data.
-
-    Parameters:
-        x_time_series (ndarray): Shape (T, N), the state of all N neurons over T time steps.
-
-    Returns:
-        eigvals (ndarray): Sorted eigenvalues (descending), shape (N,)
-        eigvecs (ndarray): Corresponding eigenvectors, shape (N, N)
-    """
     x_centered = x_time_series - np.mean(x_time_series, axis=0)
 
     cov_matrix = np.cov(x_centered, rowvar=False)
@@ -27,12 +17,7 @@ def compute_pca_components(x_time_series):
     return eigvals, eigvecs
 
 def simulate_for_pca(P=10, N=500, beta=4.0, tau=5.0, dt=0.5, T=500.0, tau_delay_factor=2, seed=42):
-    """
-    Simulate the continuous Hopfield network to produce x(t) for PCA analysis (Exercise 3.2).
-    Returns:
-        x_time_series (ndarray): shape (T_steps + 1, N)
-        patterns (ndarray): shape (P, N)
-    """
+
     np.random.seed(seed)
     patterns = generate_patterns(P, N)
     W = compute_weight_matrix(patterns)
@@ -52,26 +37,9 @@ def simulate_for_pca(P=10, N=500, beta=4.0, tau=5.0, dt=0.5, T=500.0, tau_delay_
     return x, patterns
 
 def compute_loadings(x, eigvecs, K):
-    """
-    Compute PCA loadings l_k(t) for the first K components.
-    x: shape (T, N)
-    eigvecs: shape (N, N)
-    Returns: loadings (T, K)
-    """
     return x @ eigvecs[:, :K]  # (T, N) × (N, K) = (T, K)
 
 def reconstruct_state(x, eigvecs, K_values):
-    """
-    Reconstruct the neuron state using the first K principal components.
-    
-    Parameters:
-        x (ndarray): Original time series data of shape (T, N)
-        eigvecs (ndarray): PCA eigenvectors of shape (N, N)
-        K_values (list of int): List of K values to reconstruct with
-
-    Returns:
-        reconstructions (dict): {K: x_hat} where x_hat is shape (T, N)
-    """
     reconstructions = {}
     for K in K_values:
         eigvecs_K = eigvecs[:, :K]         # (N, K)
@@ -82,13 +50,6 @@ def reconstruct_state(x, eigvecs, K_values):
 
 #3.4
 def plot_explained_variance(eigvals, max_components=20):
-    """
-    Plot percentage of explained variance for the first max_components PCA components.
-
-    Parameters:
-        eigvals (ndarray): Sorted eigenvalues from PCA
-        max_components (int): Number of components to display
-    """
     total_var = np.sum(eigvals**2)
     pct_var = (eigvals[:max_components]**2) / total_var * 100  # percentage
 
@@ -135,7 +96,7 @@ if __name__ == "__main__":
     tick_size = 12
     legend_size = 12
 
-    # --- Plot 3.2 ---
+
     plt.figure(figsize=(10, 5))
     for k in range(loadings.shape[1]):
         plt.plot(loadings[:, k], label=f"$l_{{{k+1}}}(t)$")
@@ -149,7 +110,6 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    # --- Plot 3.3 ---
     P = patterns.shape[0]
     reconstructions = reconstruct_state(x, eigvecs, K_values=[P//2, P])
     neuron_idx = 0  # choose any neuron
@@ -166,7 +126,6 @@ if __name__ == "__main__":
     plt.yticks(fontsize=tick_size)
 
     plt.legend(loc="upper right", fontsize=legend_size)
-
     plt.grid(True)
     plt.tight_layout()
     plt.show()

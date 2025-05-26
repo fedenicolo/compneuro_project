@@ -14,7 +14,12 @@ def compute_weight_matrix(patterns):
         W += np.outer(i_pattern, j_pattern)
     return W / N
 
-def simulate_continuous_hopfield(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0, tau_delay=0.5, seed=42):
+def simulate_continuous_hopfield_general(
+    P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0,
+    tau_delay=None, seed=42, plot_title=None
+):
+    if tau_delay is None:
+        tau_delay = dt  # Minimum possible for eulero in avanti
     patterns = generate_patterns(P, N, seed=seed)
 
     steps = int(T / dt)
@@ -42,50 +47,18 @@ def simulate_continuous_hopfield(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0
         plt.plot(t_vals, overlaps[:, mu], label=f"$m^{{{mu+1}}}$")
     plt.xlabel("Time (ms)")
     plt.ylabel("Overlap")
-    plt.title("Continuous Hopfield Overlap Evolution (No Delay)")
+    if plot_title is None:
+        plot_title = f"Continuous Hopfield Dynamics (tau_delay = {tau_delay} ms)"
+    plt.title(plot_title)
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.show()
 
-def simulate_continuous_hopfield_with_delay(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0, seed=42):
-    tau_delay = 2 * tau
-    patterns = generate_patterns(P, N, seed=seed)
-
-    steps = int(T / dt)
-    delay_steps = int(tau_delay / dt)
-
-    x = np.zeros((steps + 1, N))
-    x[:delay_steps + 1] = patterns[0]
-
-    overlaps = np.zeros((steps + 1, P))
-    overlaps[0] = compute_overlaps(x[0], patterns)
-
-    for k in range(1, steps + 1):
-        x_delay = x[k - delay_steps] if k - delay_steps >= 0 else x[0]
-        overlaps_delay = compute_overlaps(x_delay, patterns)
-        input_sum = np.zeros(N)
-        for mu in range(P):
-            input_sum += patterns[mu] * overlaps_delay[mu - 1]
-        dxdt = (-x[k - 1] + np.tanh(beta * input_sum)) / tau
-        x[k] = x[k - 1] + dt * dxdt
-        overlaps[k] = compute_overlaps(x[k], patterns)
-
-    t_vals = np.arange(steps + 1) * dt
-    plt.figure(figsize=(10, 5))
-    for mu in range(P):
-        plt.plot(t_vals, overlaps[:, mu], label=f"$m^{{{mu+1}}}$")
-    plt.xlabel("Time (ms)")
-    plt.ylabel("Overlap")
-    plt.title(f"Continuous Hopfield with Delay tau_delay = {tau_delay} ms")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
 
 def run_capacity_test(N_values=(100, 1000), alpha_values=np.arange(0.05, 0.45, 0.05),
                                     beta=4.0, tau=5.0, dt=0.5, trials=10, T_factor=2,
-                                    tau_delay_factor=2, threshold=0.7, seed=42):
+                                    tau_delay_factor=2, threshold=0.7, seed=102):
     results = {}
 
     for N in N_values:
@@ -135,6 +108,10 @@ def run_capacity_test(N_values=(100, 1000), alpha_values=np.arange(0.05, 0.45, 0
                         correct = False
                         break
 
+                    if time_from_last_peak > 5 * tau_delay:
+                        correct = False
+                        break
+
                 if correct:
                     success_count += 1
 
@@ -142,7 +119,6 @@ def run_capacity_test(N_values=(100, 1000), alpha_values=np.arange(0.05, 0.45, 0
 
         results[N] = retrieval_rates
 
-    # Plot results
     plt.figure(figsize=(8, 5))
     for N in N_values:
         plt.plot(alpha_values, results[N], marker='o', label=f'N={N}')
@@ -263,8 +239,17 @@ def simulate_three_independent_cycles(N=150, beta=4.0, tau=5.0, dt=0.5, T=100.0,
 
 
 if __name__ == "__main__":
-    simulate_continuous_hopfield()
-    simulate_continuous_hopfield_with_delay()
+    simulate_continuous_hopfield_general(
+        P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0,
+        tau_delay=0.5,
+        plot_title="Continuous Hopfield (No Delay)"
+        )
+
+    simulate_continuous_hopfield_general(
+        P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0,
+        tau_delay=10.0,
+        plot_title="Continuous Hopfield (With Delay)"
+        )
     run_capacity_test()
 
     simulate_mixture_initial_condition(M=2)
