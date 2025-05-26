@@ -79,7 +79,9 @@ if __name__ == "__main__":
     alpha_values = np.arange(0.05, 0.4 + 0.05, 0.05)
     prob1 = retrieval_probability(N = 100, alpha_values = alpha_values, iter = 10)
     prob2 = retrieval_probability(N = 1000, alpha_values = alpha_values, iter = 10)
-    
+
+
+    plt.figure(figsize=(10, 5))
     plt.plot(alpha_values, prob1, label="N = 100")
     plt.plot(alpha_values, prob2, label="N = 1000")
     plt.xlabel("Network Load (alpha)")

@@ -5,7 +5,6 @@ import os
 os.getcwd()
 from es0 import generate_patterns, compute_overlaps
 
-
 def compute_weight_matrix(patterns):
     P, N = patterns.shape
     W = np.zeros((N, N))
@@ -15,15 +14,12 @@ def compute_weight_matrix(patterns):
         W += np.outer(i_pattern, j_pattern)
     return W / N
 
-# Exercise 2.1: Continuous dynamics simulation (no real delay yet)
 def simulate_continuous_hopfield(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0, tau_delay=0.5, seed=42):
     patterns = generate_patterns(P, N, seed=seed)
-    W = compute_weight_matrix(patterns)
 
     steps = int(T / dt)
     delay_steps = int(tau_delay / dt)
 
-    # Initialize: x(t < 0) = p^1
     x = np.zeros((steps + 1, N))
     x[:delay_steps + 1] = patterns[0]
 
@@ -32,10 +28,13 @@ def simulate_continuous_hopfield(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0
 
     for k in range(1, steps + 1):
         x_delay = x[k - delay_steps] if k - delay_steps >= 0 else x[0]
-        dxdt = (-x[k - 1] + np.tanh(beta * (W @ x_delay))) / tau
+        overlaps_delay = compute_overlaps(x_delay, patterns)
+        input_sum = np.zeros(N)
+        for mu in range(P):
+            input_sum += patterns[mu] * overlaps_delay[mu - 1]
+        dxdt = (-x[k - 1] + np.tanh(beta * input_sum)) / tau
         x[k] = x[k - 1] + dt * dxdt
         overlaps[k] = compute_overlaps(x[k], patterns)
-
 
     t_vals = np.arange(steps + 1) * dt
     plt.figure(figsize=(10, 5))
@@ -50,9 +49,8 @@ def simulate_continuous_hopfield(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0
     plt.show()
 
 def simulate_continuous_hopfield_with_delay(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0, seed=42):
-    tau_delay = 2 * tau  
+    tau_delay = 2 * tau
     patterns = generate_patterns(P, N, seed=seed)
-    W = compute_weight_matrix(patterns)
 
     steps = int(T / dt)
     delay_steps = int(tau_delay / dt)
@@ -65,7 +63,11 @@ def simulate_continuous_hopfield_with_delay(P=10, N=100, beta=4.0, tau=5.0, dt=0
 
     for k in range(1, steps + 1):
         x_delay = x[k - delay_steps] if k - delay_steps >= 0 else x[0]
-        dxdt = (-x[k - 1] + np.tanh(beta * (W @ x_delay))) / tau
+        overlaps_delay = compute_overlaps(x_delay, patterns)
+        input_sum = np.zeros(N)
+        for mu in range(P):
+            input_sum += patterns[mu] * overlaps_delay[mu - 1]
+        dxdt = (-x[k - 1] + np.tanh(beta * input_sum)) / tau
         x[k] = x[k - 1] + dt * dxdt
         overlaps[k] = compute_overlaps(x[k], patterns)
 
@@ -81,21 +83,21 @@ def simulate_continuous_hopfield_with_delay(P=10, N=100, beta=4.0, tau=5.0, dt=0
     plt.tight_layout()
     plt.show()
 
-def run_capacity_test_continuous(N_values=(100, 1000), alpha_values=np.arange(0.05, 0.45, 0.05),
-                                 beta=4.0, tau=5.0, dt=0.5, trials=10, T_factor=2,
-                                 tau_delay_factor=2, seed=42):
+def run_capacity_test(N_values=(100, 1000), alpha_values=np.arange(0.05, 0.45, 0.05),
+                                    beta=4.0, tau=5.0, dt=0.5, trials=10, T_factor=2,
+                                    tau_delay_factor=2, threshold=0.7, seed=42):
     results = {}
 
     for N in N_values:
         retrieval_rates = []
+
         for alpha in alpha_values:
             P = int(alpha * N)
             success_count = 0
+
             for trial in range(trials):
                 np.random.seed(seed + trial)
                 patterns = generate_patterns(P, N)
-                W = compute_weight_matrix(patterns)
-
                 tau_delay = tau_delay_factor * tau
                 T = T_factor * P * tau_delay
                 steps = int(T / dt)
@@ -103,36 +105,41 @@ def run_capacity_test_continuous(N_values=(100, 1000), alpha_values=np.arange(0.
 
                 x = np.zeros((steps + 1, N))
                 x[:delay_steps + 1] = patterns[0]
-                overlaps = np.zeros((steps + 1, P))
-                overlaps[0] = compute_overlaps(x[0], patterns)
 
-                for k in range(1, steps + 1):
-                    x_delay = x[k - delay_steps] if k - delay_steps >= 0 else x[0]
-                    dxdt = (-x[k - 1] + np.tanh(beta * (W @ x_delay))) / tau
-                    x[k] = x[k - 1] + dt * dxdt
-                    overlaps[k] = compute_overlaps(x[k], patterns)
+                m = np.zeros((steps + 1, P))
+                m[0] = (1 / N) * (patterns @ x[0])
 
-                # Process the max-overlap sequence
-                max_indices = np.argmax(overlaps, axis=1)
+                correct = True
+                last_peak = 0
+                time_from_last_peak = 0
 
-                # De-duplicate consecutive values
-                unique_seq = []
-                for idx in max_indices:
-                    if not unique_seq or idx != unique_seq[-1]:
-                        unique_seq.append(idx)
+                for k in range(steps):
+                    k_prev = max(0, k - delay_steps)
+                    input_sum = (
+                        beta * (patterns[0] * m[k_prev, P - 1] +
+                                m[k_prev, 0:P - 1] @ patterns[1:P])
+                    )
+                    dxdt = (-x[k] + np.tanh(input_sum)) / tau
+                    x[k + 1] = x[k] + dt * dxdt
+                    m[k + 1] = (1 / N) * (patterns @ x[k + 1])
 
-                # Check if sequence [0, 1, ..., P-1] appears in order
-                target = list(range(P))
-                found = False
-                for i in range(len(unique_seq) - P + 1):
-                    if unique_seq[i:i+P] == target:
-                        found = True
+                    new_peak = np.argmax(m[k + 1])
+                    if np.max(m[k + 1]) < threshold:
+                        time_from_last_peak += dt
+                    else:
+                        time_from_last_peak = 0
+
+                    if new_peak == (last_peak + 1) % P:
+                        last_peak = new_peak
+                    elif new_peak != last_peak:
+                        correct = False
                         break
 
-                if found:
+                if correct:
                     success_count += 1
 
             retrieval_rates.append(success_count / trials)
+
         results[N] = retrieval_rates
 
     # Plot results
@@ -141,89 +148,24 @@ def run_capacity_test_continuous(N_values=(100, 1000), alpha_values=np.arange(0.
         plt.plot(alpha_values, results[N], marker='o', label=f'N={N}')
     plt.xlabel("Load alfa = P/N")
     plt.ylabel("Retrieval Success Rate")
-    plt.title("Cycle Retrieval Capacity (Continuous Model, Correct Detection)")
+    plt.title("Cycle Retrieval Capacity")
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
-
-def run_capacity_test_with_early_stopping(N_values=(100, 1000), alpha_values=np.arange(0.05, 0.45, 0.05),
-                                beta=4.0, tau=5.0, dt=0.5, trials=10, T_factor=2,
-                                tau_delay_factor=2, seed=42):
-    results = {}
-    
-    for N in N_values:
-        retrieval_rates = []
-        for alpha in alpha_values:
-            P = int(alpha * N)
-            success_count = 0
-            for trial in range(trials):
-                np.random.seed(seed + trial)
-                patterns = generate_patterns(P, N)
-                W = compute_weight_matrix(patterns)
-
-                tau_delay = tau_delay_factor * tau
-                T = T_factor * P * tau_delay
-                steps = int(T / dt)
-                delay_steps = int(tau_delay / dt)
-
-                x = np.zeros((steps + 1, N))
-                x[:delay_steps + 1] = patterns[0]
-                overlaps = np.zeros((steps + 1, P))
-                overlaps[0] = compute_overlaps(x[0], patterns)
-
-                max_indices = []
-
-                for k in range(1, steps + 1):
-                    x_delay = x[k - delay_steps] if k - delay_steps >= 0 else x[0]
-                    dxdt = (-x[k - 1] + np.tanh(beta * (W @ x_delay))) / tau
-                    x[k] = x[k - 1] + dt * dxdt
-                    overlaps[k] = compute_overlaps(x[k], patterns)
-                    max_indices.append(np.argmax(overlaps[k]))
-
-                    # Optional: stop if simulation is very long and we have all patterns in order
-                    observed_seq = []
-                    for idx in max_indices:
-                        if len(observed_seq) == 0 or idx != observed_seq[-1]:
-                            observed_seq.append(idx)
-                        if len(observed_seq) > P:
-                            break
-
-                    if observed_seq == list(range(P)):
-                        success_count += 1
-                        break
-
-            retrieval_rates.append(success_count / trials)
-        results[N] = retrieval_rates
-
-    # Plot results
-    plt.figure(figsize=(8, 5))
-    for N in N_values:
-        plt.plot(alpha_values, results[N], marker='o', label=f'N={N}')
-    plt.xlabel("Load alfa = P/N")
-    plt.ylabel("Retrieval Success Rate")
-    plt.title("Cycle Retrieval Capacity (Corrected, Continuous Model)")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
-
 
 #BONUS
 def simulate_mixture_initial_condition(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T=100.0,
                                        tau_delay_factor=2, M=2, seed=42):
     np.random.seed(seed)
     patterns = generate_patterns(P, N)
-    W = compute_weight_matrix(patterns)
-    
+
     tau_delay = tau_delay_factor * tau
     steps = int(T / dt)
     delay_steps = int(tau_delay / dt)
 
-    # Initial condition: average of first M patterns
-    x0 = np.mean(patterns[:M], axis=0)
-    x0 = np.clip(x0, -1, 1)
+    # Initial condition: 1/2 * sum of first M patterns
+    x0 = 0.5 * np.sum(patterns[:M], axis=0)
 
     x = np.zeros((steps + 1, N))
     x[:delay_steps + 1] = x0
@@ -233,7 +175,13 @@ def simulate_mixture_initial_condition(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T
 
     for k in range(1, steps + 1):
         x_delay = x[k - delay_steps] if k - delay_steps >= 0 else x0
-        dxdt = (-x[k - 1] + np.tanh(beta * (W @ x_delay))) / tau
+        overlaps_delay = compute_overlaps(x_delay, patterns)
+
+        input_sum = np.zeros(N)
+        for mu in range(P):
+            input_sum += patterns[mu] * overlaps_delay[mu - 1]  # cyclic index
+
+        dxdt = (-x[k - 1] + np.tanh(beta * input_sum)) / tau
         x[k] = x[k - 1] + dt * dxdt
         overlaps[k] = compute_overlaps(x[k], patterns)
 
@@ -243,17 +191,15 @@ def simulate_mixture_initial_condition(P=10, N=100, beta=4.0, tau=5.0, dt=0.5, T
         plt.plot(t_vals, overlaps[:, mu], label=f"$m^{{{mu+1}}}$")
     plt.xlabel("Time (ms)")
     plt.ylabel("Overlap")
-    plt.title(f"Mixture Init of M={M} Patterns - Overlap Evolution")
+    plt.title(f"Mixture Init (M={M} patterns) - Overlap Evolution")
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.show()
 
 
+
 def simulate_three_independent_cycles(N=150, beta=4.0, tau=5.0, dt=0.5, T=100.0, tau_delay_factor=2, seed=42):
-    """
-    Simulate a network with three independent cycles of different lengths.
-    """
     np.random.seed(seed)
     
     # Define 3 cycles of different lengths
@@ -284,8 +230,7 @@ def simulate_three_independent_cycles(N=150, beta=4.0, tau=5.0, dt=0.5, T=100.0,
 
     # Initial state: average of one pattern from each cycle
     idxs = [0, 2, 5]  # first pattern from each cycle
-    x0 = np.mean([patterns[i] for i in idxs], axis=0)
-    x0 = np.clip(x0, -1, 1)
+    x0 = np.sum([patterns[i] for i in idxs], axis=0) / 2
 
     x = np.zeros((steps + 1, N))
     x[:delay_steps + 1] = x0
@@ -300,7 +245,7 @@ def simulate_three_independent_cycles(N=150, beta=4.0, tau=5.0, dt=0.5, T=100.0,
 
     # Plot overlaps grouped by cycle
     t_vals = np.arange(steps + 1) * dt
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(10, 5))
     colors = ['tab:blue', 'tab:orange', 'tab:green']
     start = 0
     for i, cl in enumerate(cycle_lengths):
@@ -317,31 +262,12 @@ def simulate_three_independent_cycles(N=150, beta=4.0, tau=5.0, dt=0.5, T=100.0,
     plt.show()
 
 
-
-
 if __name__ == "__main__":
     simulate_continuous_hopfield()
     simulate_continuous_hopfield_with_delay()
-    #run_capacity_test_continuous()
-    #run_capacity_test_with_early_stopping()
+    run_capacity_test()
 
-    #for the bonus
-    # Run for M = 2 and M = 3
     simulate_mixture_initial_condition(M=2)
     simulate_mixture_initial_condition(M=3)
 
     simulate_three_independent_cycles()
-
-#Es 2.1
-#At t = 0, the overlap is close to 1, as expected.
-#Over time, all overlap variables fluctuate weakly and irregularly.
-#There is no clear cyclic pattern or consistent progression from one pattern to the next.
-#The network seems to converge to a blended or ambiguous state, where all patterns are partially activated.
-
-#Es 2.2
-#The network now exhibits clear cyclic behavior: each overlap rises and falls in sequence.
-#The cycle proceeds as: m1 -> m2 ... -> m10 -> m1 -> ...
-#The cyclic pattern is stable and repeats cleanly, showing a limit cycle.
-
-#Es 2.3
-# from a point onwards, the success rate drops rapiddly to 0.
